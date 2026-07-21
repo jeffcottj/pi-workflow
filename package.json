@@ -1,0 +1,34 @@
+{
+  "name": "pi-workflow",
+  "version": "0.1.0",
+  "description": "Four-stage agentic development workflow for the pi coding agent: groundwork, blueprint, build, yeet.",
+  "license": "MIT",
+  "author": "jeffcottj",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeffcottj/pi-workflow.git"
+  },
+  "homepage": "https://github.com/jeffcottj/pi-workflow#readme",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "skills",
+    "workflow"
+  ],
+  "pi": {
+    "skills": [
+      "./skills"
+    ]
+  },
+  "pi-subagents": {
+    "agents": [
+      "./agents"
+    ]
+  },
+  "scripts": {
+    "validate": "node scripts/validate.mjs",
+    "apply-models": "node scripts/apply-models.mjs"
+  }
+}

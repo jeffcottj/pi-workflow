@@ -1,0 +1,20 @@
+# Workflow artifacts - never committed.
+# Plans are hand-carried between devices, not synced through git.
+.pi-workflow/
+
+# pi-subagents run artifacts
+.pi-subagents/
+
+# node
+node_modules/
+
+# env + secrets
+.env
+.env.*
+!.env.example
+
+# os / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

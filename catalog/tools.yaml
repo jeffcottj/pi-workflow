@@ -1,0 +1,236 @@
+# pi-workflow tool catalog
+# Probed by /skill:groundwork. See catalog/README.md for the entry schema.
+# Install commands target Ubuntu 24.04 with Node 24 and .NET present.
+# Rule: if `install` contains sudo, `sudo` MUST be true. groundwork never runs it.
+
+tools:
+  # ---------------------------------------------------------------- version control
+  - id: gh
+    name: GitHub CLI
+    kind: cli
+    detect: gh --version
+    install: "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && echo 'deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' | sudo tee /etc/apt/sources.list.d/github-cli.list && sudo apt update && sudo apt install gh -y"
+    sudo: true
+    scope: global
+    auth: gh auth login
+    auth_check: gh auth status
+    domains: [git, github, ci, any]
+
+  - id: gitleaks
+    name: gitleaks
+    kind: cli
+    detect: gitleaks version
+    install: "GL=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | jq -r .tag_name | tr -d v) && curl -fsSL \"https://github.com/gitleaks/gitleaks/releases/download/v${GL}/gitleaks_${GL}_linux_x64.tar.gz\" | tar -xz -C ~/.local/bin gitleaks"
+    install_notes: "Requires ~/.local/bin on PATH. Used by /skill:yeet for staged-diff secret scanning; yeet also runs a built-in regex pass, so this is recommended, not required."
+    sudo: false
+    scope: global
+    domains: [git, security, any]
+
+  # ---------------------------------------------------------------- hosting / PaaS
+  - id: render
+    name: Render CLI
+    kind: cli
+    detect: render --version
+    install: "curl -fsSL https://raw.githubusercontent.com/render-oss/cli/refs/heads/main/bin/install.sh | sh"
+    install_notes: "Verify the current install method at https://render.com/docs/cli before running."
+    sudo: false
+    scope: global
+    auth: render login
+    domains: [render, paas, deploy, hosting]
+
+  - id: flyctl
+    name: Fly.io CLI
+    kind: cli
+    detect: flyctl version
+    install: "curl -L https://fly.io/install.sh | sh"
+    install_notes: "Installs to ~/.fly. Add ~/.fly/bin to PATH."
+    sudo: false
+    scope: global
+    auth: flyctl auth login
+    domains: [fly, paas, deploy, hosting]
+
+  # ---------------------------------------------------------------- cloud
+  - id: az
+    name: Azure CLI
+    kind: cli
+    detect: az version
+    install: "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash"
+    sudo: true
+    scope: global
+    auth: az login
+    auth_check: az account show
+    domains: [azure, cloud, deploy, hosting]
+
+  - id: azure-functions-core-tools
+    name: Azure Functions Core Tools
+    kind: cli
+    detect: func --version
+    install: "npm i -D azure-functions-core-tools@4"
+    install_notes: "Project-scoped: local `func start` is the local-dev path for a Functions app."
+    sudo: false
+    scope: project
+    domains: [azure, functions, serverless]
+
+  - id: aws
+    name: AWS CLI v2
+    kind: cli
+    detect: aws --version
+    install: "curl -fsSL 'https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip' -o /tmp/awscliv2.zip && unzip -q -o /tmp/awscliv2.zip -d /tmp && /tmp/aws/install -i ~/.local/aws-cli -b ~/.local/bin"
+    install_notes: "User-scope install into ~/.local, no root needed."
+    sudo: false
+    scope: global
+    auth: aws configure
+    auth_check: aws sts get-caller-identity
+    domains: [aws, cloud, deploy, hosting]
+
+  - id: sam
+    name: AWS SAM CLI
+    kind: cli
+    detect: sam --version
+    install: "uv tool install aws-sam-cli"
+    sudo: false
+    scope: global
+    domains: [aws, serverless, lambda]
+
+  # ---------------------------------------------------------------- power platform
+  - id: pac
+    name: Power Platform CLI
+    kind: cli
+    detect: pac --version
+    install: "dotnet tool install -g Microsoft.PowerApps.CLI.Tool"
+    install_notes: "Requires .NET SDK. Add ~/.dotnet/tools to PATH."
+    sudo: false
+    scope: global
+    auth: pac auth create
+    auth_check: pac auth list
+    domains: [power-apps, power-automate, dataverse, power-platform]
+
+  - id: pwsh
+    name: PowerShell 7
+    kind: runtime
+    detect: pwsh --version
+    install: "sudo snap install powershell --classic"
+    sudo: true
+    scope: global
+    domains: [powershell, power-platform, azure, windows]
+
+  # ---------------------------------------------------------------- containers / iac
+  - id: docker
+    name: Docker Engine
+    kind: runtime
+    detect: docker info
+    install: "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER"
+    install_notes: "Log out and back in after usermod for the group to take effect. `docker info` (not `docker --version`) is the detect command because the CLI can be present while the daemon is unreachable."
+    sudo: true
+    scope: global
+    domains: [docker, containers, local-dev, deploy]
+
+  - id: terraform
+    name: Terraform
+    kind: cli
+    detect: terraform version
+    install: "TF=$(curl -fsSL https://api.github.com/repos/hashicorp/terraform/releases/latest | jq -r .tag_name | tr -d v) && curl -fsSL \"https://releases.hashicorp.com/terraform/${TF}/terraform_${TF}_linux_amd64.zip\" -o /tmp/tf.zip && unzip -q -o /tmp/tf.zip -d ~/.local/bin"
+    sudo: false
+    scope: global
+    domains: [iac, terraform, aws, azure, deploy]
+
+  # ---------------------------------------------------------------- web app / testing
+  - id: playwright
+    name: Playwright
+    kind: cli
+    detect: npx --no-install playwright --version
+    install: "npm i -D @playwright/test && npx playwright install chromium"
+    install_notes: "Browser binaries land in ~/.cache/ms-playwright, no root needed. System libraries may still be missing - see playwright-deps."
+    sudo: false
+    scope: project
+    domains: [web, testing, e2e, browser, ui]
+
+  - id: playwright-deps
+    name: Playwright system libraries
+    kind: cli
+    detect: "npx --no-install playwright install --dry-run chromium >/dev/null 2>&1"
+    install: "sudo npx playwright install-deps chromium"
+    install_notes: "Only needed when browsers fail to launch with missing shared libraries."
+    sudo: true
+    scope: global
+    domains: [web, testing, e2e, browser]
+
+  - id: vitest
+    name: Vitest
+    kind: cli
+    detect: npx --no-install vitest --version
+    install: "npm i -D vitest"
+    sudo: false
+    scope: project
+    domains: [testing, node, typescript]
+
+  - id: biome
+    name: Biome
+    kind: cli
+    detect: npx --no-install biome --version
+    install: "npm i -D --save-exact @biomejs/biome && npx biome init"
+    sudo: false
+    scope: project
+    domains: [lint, format, typescript, node]
+
+  # ---------------------------------------------------------------- utilities
+  - id: jq
+    name: jq
+    kind: cli
+    detect: jq --version
+    install: "sudo apt install -y jq"
+    sudo: true
+    scope: global
+    domains: [any]
+
+  - id: ripgrep
+    name: ripgrep
+    kind: cli
+    detect: rg --version
+    install: "sudo apt install -y ripgrep"
+    sudo: true
+    scope: global
+    domains: [any]
+
+  - id: uv
+    name: uv
+    kind: cli
+    detect: uv --version
+    install: "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    sudo: false
+    scope: global
+    domains: [python]
+
+  # ---------------------------------------------------------------- MCP servers
+  # kind: mcp entries require pi-mcp-adapter. Confirm the adapter's config format
+  # before automating these - groundwork must surface the manual step rather than
+  # running an unverified command.
+  - id: mcp-adapter
+    name: pi MCP adapter
+    kind: mcp
+    detect: "pi list | grep -q pi-mcp-adapter"
+    install: "pi install npm:pi-mcp-adapter"
+    install_notes: "Prerequisite for every kind: mcp entry. Restart pi after installing."
+    sudo: false
+    scope: global
+    domains: [mcp]
+
+  - id: mcp-microsoft-learn
+    name: Microsoft Learn MCP server
+    kind: mcp
+    detect: "pi list | grep -q microsoft-learn"
+    install: "MANUAL"
+    install_notes: "Requires pi-mcp-adapter. Configure the Microsoft Learn MCP endpoint per the adapter's README, then restart pi. groundwork must print this as a manual step, not run a command."
+    sudo: false
+    scope: global
+    domains: [azure, power-platform, microsoft, docs]
+
+  - id: mcp-chrome-devtools
+    name: Chrome DevTools MCP server
+    kind: mcp
+    detect: "pi list | grep -q chrome-devtools"
+    install: "MANUAL"
+    install_notes: "Requires pi-mcp-adapter plus a Chrome/Chromium binary. Configure per the adapter's README. Useful when the local-dev smoke check needs real browser inspection rather than Playwright assertions."
+    sudo: false
+    scope: global
+    domains: [web, browser, debugging, ui]

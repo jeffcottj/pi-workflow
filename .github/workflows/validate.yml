@@ -1,0 +1,22 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      # No install step: this package has no dependencies, on purpose.
+      - name: Validate package structure
+        run: node scripts/validate.mjs --verbose
+
+      - name: Check bootstrap script syntax
+        run: bash -n scripts/bootstrap.sh

@@ -1,0 +1,29 @@
+{
+  "$comment": "Runaway detection only. There is deliberately NO parallelism cap and NO hard budget kill. These values exist to catch a subagent that is stuck or looping, not to ration work.",
+
+  "maxParallel": 0,
+  "$maxParallel": "0 means unlimited: launch every package whose dependencies are satisfied. pi-subagents defaults `concurrency` to 4, so skills MUST pass concurrency explicitly (= wave size) or this decision is silently overridden. Any positive integer here caps it.",
+
+  "packageTimeoutMin": 25,
+  "$packageTimeoutMin": "Passed as timeoutMs. A subagent exceeding it is killed, logged as a timeout, and retried within maxRetriesPerPackage. Timeouts are always reported in the wave summary, never swallowed.",
+
+  "turnBudget": { "maxTurns": 80, "graceTurns": 5 },
+  "$turnBudget": "Loop guard: an agent taking this many turns on one work package is stuck, not thorough.",
+
+  "toolBudget": { "soft": 150, "hard": 250 },
+  "$toolBudget": "Second loop guard, catching repeated identical tool calls that burn turns slowly.",
+
+  "control": {
+    "enabled": true,
+    "needsAttentionAfterMs": 300000,
+    "failedToolAttemptsBeforeAttention": 3
+  },
+  "$control": "pi-subagents native stuck detection: no observed activity for 5 minutes, or 3 consecutive failing mutating tool calls, raises the run to needs_attention so the orchestrator can surface it.",
+
+  "maxRetriesPerPackage": 2,
+  "$maxRetriesPerPackage": "After exhaustion, escalate once to oracle, then mark the package blocked, continue with independent packages, and stop to report.",
+
+  "softBudgetUsd": 5,
+  "softBudgetAction": "ask",
+  "$softBudget": "When cumulative reported subagent cost crosses the threshold, finish the in-flight wave, then ask: continue / raise / stop. Never abort mid-package. If pi-subagents reports no usage data, say so once and treat the soft budget as disabled rather than estimating."
+}

@@ -1,0 +1,41 @@
+{
+  "$comment": "Model routing for pi-workflow subagents. Keys are roles; each role maps to the agent pi-workflow.pw-<role>. Applied to subagents.agentOverrides by scripts/apply-models.mjs. Every ID must exist in `pi --list-models`; skills fall back to the session model and warn if one is missing.",
+  "provider": "opencode-go",
+  "roles": {
+    "scout": {
+      "model": "opencode-go/deepseek-v4-flash",
+      "thinking": "medium",
+      "why": "Cheapest fast model. Codebase mapping and tool probing are recall tasks, not reasoning tasks."
+    },
+    "researcher": {
+      "model": "opencode-go/deepseek-v4-pro",
+      "thinking": "high",
+      "why": "Strong synthesis across many fetched pages, a tier below the planner in cost."
+    },
+    "planner": {
+      "model": "opencode-go/kimi-k3",
+      "thinking": "high",
+      "why": "1M context holds the interview, the research and the whole plan at once."
+    },
+    "worker": {
+      "model": "opencode-go/kimi-k2.7-code",
+      "thinking": "high",
+      "why": "Code-specialised with 262K max output, enough for large multi-file work packages."
+    },
+    "reviewer": {
+      "model": "opencode-go/glm-5.2",
+      "thinking": "high",
+      "why": "Deliberately a different family from worker so review is a genuine second opinion. Never set this to the worker model."
+    },
+    "scribe": {
+      "model": "opencode-go/mimo-v2.5",
+      "thinking": "medium",
+      "why": "Tool docs and summaries do not need a frontier model."
+    },
+    "oracle": {
+      "model": "opencode-go/qwen3.7-max",
+      "thinking": "high",
+      "why": "Escalation path when a worker and reviewer disagree twice. Maps to the pi-subagents builtin `oracle`, not a pw- agent."
+    }
+  }
+}

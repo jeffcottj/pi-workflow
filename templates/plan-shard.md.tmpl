@@ -1,0 +1,32 @@
+---
+id: {{NN}}-{{slug}}
+depends_on: []
+owns:
+  - {{glob}}
+acceptance:
+  - "{{observable fact or exact command}}"
+manual: false
+---
+
+## Goal
+
+One paragraph, past tense: what exists when this package is done.
+
+## Context
+
+Everything an agent starting from nothing needs, beyond `00-overview.md`:
+exact libraries and versions, conventions quoted from `research/codebase.md` with
+`file.ts:42` citations, the shape of adjacent code, env var names.
+
+## Steps
+
+1. …name files, functions, routes, types.
+
+## Tests
+
+What to write, where, and the exact command that runs it.
+
+## Out of scope
+
+What this package must not touch — especially files owned by siblings in the same
+wave.
