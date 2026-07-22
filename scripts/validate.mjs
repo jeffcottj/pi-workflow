@@ -89,7 +89,7 @@ for (const p of [...(pkg.pi?.skills ?? []), ...(pkg["pi-subagents"]?.agents ?? [
 }
 
 // ------------------------------------------------------------------ 2. skills
-const SKILLS = ["groundwork", "blueprint", "build", "yeet"];
+const SKILLS = ["setup", "groundwork", "blueprint", "build", "yeet"];
 const skillsDir = join(ROOT, "skills");
 
 for (const name of SKILLS) {
@@ -383,14 +383,35 @@ for (const file of walk(skillsDir).filter((f) => f.endsWith(".md"))) {
 ok("agent references are namespaced");
 
 // --------------------------------------------------------------- 9. secrets
-const SECRET_PATTERNS = [
-  [/-----BEGIN [A-Z ]*PRIVATE KEY-----/, "private key"],
-  [/\b(AKIA|ASIA)[0-9A-Z]{16}\b/, "AWS access key id"],
-  [/\bgh[pousr]_[A-Za-z0-9]{20,}\b/, "GitHub token"],
-  [/\bxox[abpr]-[A-Za-z0-9-]{10,}\b/, "Slack token"],
-  [/\bAIza[0-9A-Za-z_-]{35}\b/, "Google API key"],
-  [/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/, "JWT"],
-];
+// The patterns live in shared/secret-patterns.md so yeet and this script cannot
+// drift. yeet reads it as instructions; this parses the same block.
+const patternsPath = join(ROOT, "shared", "secret-patterns.md");
+const SECRET_PATTERNS = [];
+if (!existsSync(patternsPath)) {
+  err(patternsPath, "missing: yeet and validate both depend on this list");
+} else {
+  const block = read(patternsPath).match(/```patterns\r?\n([\s\S]*?)```/);
+  if (!block) {
+    err(patternsPath, "no ```patterns block found");
+  } else {
+    for (const line of block[1].split(/\r?\n/)) {
+      if (!line.trim()) continue;
+      const idx = line.indexOf(" :: ");
+      if (idx === -1) {
+        err(patternsPath, `line is not "<label> :: <regex>": ${line.trim()}`);
+        continue;
+      }
+      const label = line.slice(0, idx).trim();
+      const source = line.slice(idx + 4).trim();
+      try {
+        SECRET_PATTERNS.push([new RegExp(source), label]);
+      } catch (e) {
+        err(patternsPath, `"${label}" is not a valid regex: ${e.message}`);
+      }
+    }
+  }
+}
+if (SECRET_PATTERNS.length) ok(`${SECRET_PATTERNS.length} secret patterns loaded`);
 
 for (const file of walk(ROOT)) {
   const rel = relative(ROOT, file);

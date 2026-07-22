@@ -5,6 +5,7 @@ packaged so it can be recreated on any device with one command.
 
 | Stage | Skill | Produces |
 |---|---|---|
+| 0 | `/skill:setup` | a machine that passes `doctor.mjs` — run once, after install |
 | 1 | `/skill:groundwork` | `tools.md` — every CLI and MCP server the task needs, installed or consciously declined |
 | 2 | `/skill:blueprint` | `plan/` — a sharded, decision-free implementation plan |
 | 3 | `/skill:build` | working, tested, locally-verified code and local commits |
@@ -20,8 +21,15 @@ hand the implementer a plan that leaves nothing open.
 pi install git:github.com/jeffcottj/pi-workflow
 ```
 
-pi does not install pi packages transitively, so run the bootstrap once to add the
-companion packages the skills call:
+pi does not install pi packages transitively, so the skills' companion packages
+need one more step. Restart pi, then:
+
+```
+> /skill:setup
+```
+
+It finds the package root itself, runs the bootstrap, and reports what is still
+wrong. If you would rather run it directly:
 
 ```sh
 bash "$(pi list | grep -A1 pi-workflow | tail -1 | xargs)"/scripts/bootstrap.sh
@@ -208,6 +216,7 @@ talks to a remote, and it refuses on any secret-scan hit with no override.
 ## Development
 
 ```sh
+npm test                         # 45 tests over scripts/, no dependencies
 node scripts/validate.mjs        # frontmatter, routing, catalog, references, secrets
 node scripts/doctor.mjs          # is this machine actually set up?
 node scripts/apply-models.mjs --dry-run

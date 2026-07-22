@@ -26,7 +26,10 @@ documentation for humans. Optimise for an agent following it literally.
 - `roles.reviewer` must never resolve to the same model as `roles.worker`. A
   reviewer that shares a model with the implementer is not a second opinion.
 - Never commit `.pi-workflow/`.
-- Run `node scripts/validate.mjs` before committing.
+- **Secret patterns live in `shared/secret-patterns.md` and nowhere else.** `yeet`
+  reads it as instructions, `validate.mjs` compiles the same block. Never restate
+  the list in a skill — a second copy is a copy that drifts.
+- Run `node scripts/validate.mjs` and `npm test` before committing.
 
 ## Structure
 
@@ -38,7 +41,43 @@ documentation for humans. Optimise for an agent following it literally.
 | `config/` | `models.json` (role routing) and `limits.json` (runaway detection). |
 | `catalog/` | `tools.yaml` — the curated tool/MCP inventory groundwork probes. |
 | `templates/` | Skeletons for generated artifacts. |
-| `scripts/` | `bootstrap.sh`, `apply-models.mjs`, `validate.mjs`. |
+| `test/` | `node --test` suite over `scripts/`. No dependencies. |
+| `scripts/` | See below. All zero-dependency, all runnable standalone. |
+
+| Script | Purpose |
+|---|---|
+| `bootstrap.sh` | One-shot machine setup; calls the four below. Safe to re-run. |
+| `validate.mjs` | Checks the **repo**: frontmatter, catalog, references, secrets. |
+| `doctor.mjs` | Checks the **machine**: packages, agents, resolved models, routing. |
+| `apply-models.mjs` | Writes `config/models.json` into `subagents.agentOverrides`. |
+| `suggest-models.mjs` | Proposes role→model mapping from the local catalog. |
+| `apply-web-search.mjs` | Defaults pi-web-access to raw results, not the curator. |
+
+`validate.mjs` and `doctor.mjs` are not redundant. A config that validates cleanly
+still collapses `worker` and `reviewer` onto one model on a machine whose provider
+it does not target — that is a machine fact, invisible to the repo.
+
+## Tests
+
+`npm test` runs `node --test` over `test/*.test.mjs`. No test framework, same
+zero-dependency rule as `scripts/`.
+
+The scripts under test are CLIs that read the real machine, so tests **run them as
+subprocesses against a fake one** — a stub `pi` on `PATH`, a temp
+`PI_CODING_AGENT_DIR`, a throwaway copy of the repo — rather than importing them.
+That is also how they fail in the wild. Helpers are in `test/support/harness.mjs`.
+
+Two rules that are easy to get wrong:
+
+- **Never write a literal secret into a test file.** `validate.mjs` walks the whole
+  repo including `test/`, and it is right to. Assemble fixtures at runtime;
+  `harness.mjs` exports `fixtures.awsKey()` and `fixtures.pemHeader()` for this.
+- **To test "the tool is missing", replace `PATH` wholesale** (`PATH_WITHOUT_PI`).
+  Prepending an empty directory leaves the real binary reachable further down and
+  silently inverts the test.
+
+Every seeded fault in `docs/verification.md` has a test. Adding a guard to
+`validate.mjs` means adding the fault that proves it fires.
 
 ## Companion packages
 

@@ -28,7 +28,10 @@
     ]
   },
   "scripts": {
+    "test": "node --test test/*.test.mjs",
     "validate": "node scripts/validate.mjs",
-    "apply-models": "node scripts/apply-models.mjs"
+    "doctor": "node scripts/doctor.mjs",
+    "apply-models": "node scripts/apply-models.mjs",
+    "suggest-models": "node scripts/suggest-models.mjs"
   }
 }

@@ -67,15 +67,11 @@ pass (b) always runs.
 
 **b. Built-in regex pass** over the staged diff, regardless of (a):
 
-- private key headers (`-----BEGIN * PRIVATE KEY-----`)
-- AWS `AKIA…` / `ASIA…` and secret access keys
-- Azure connection strings, `client_secret`, SAS tokens
-- GitHub `gh[pousr]_…`
-- Slack `xox[abpr]-…`
-- Google `AIza…`
-- JWTs (`eyJ…` with two dots)
-- generic `api[_-]?key`, `secret`, `password`, `token` assigned a long literal
-- staged files named `*.pem`, `*.pfx`, `*.p12`, `id_rsa`, `*.keystore`, `.env*`
+Read `shared/secret-patterns.md` from this package root and run **every** pattern
+in its ```patterns block against the staged diff, plus every pattern in its
+```filenames block against the staged paths. That file is the single source —
+`scripts/validate.mjs` compiles the same list, so the two cannot drift. Do not
+work from a list you remember.
 
 **Any hit is fatal.** Report file and line with the value **redacted**, unstage
 everything (`git reset`), and STOP.

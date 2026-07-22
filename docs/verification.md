@@ -22,11 +22,14 @@ so it is labelled as such rather than folded into the tables above.
 | `apply-models.mjs` | wrote 13 overrides; backup created; `theme`, `defaultModel`, `defaultProvider`, `packages` all preserved |
 | README bootstrap one-liner | resolves to the package root and finds `scripts/bootstrap.sh` |
 | `bash -n scripts/bootstrap.sh` | syntax clean |
+| `npm test` | 45 pass, 0 fail — `validate.mjs`, `apply-models.mjs`, `suggest-models.mjs`, `doctor.mjs`, `apply-web-search.mjs` against faked machines |
+| `doctor.mjs` on this machine | 0 failures, 0 warnings, 11 ok |
 
 ## Seeded faults — all caught
 
-Each mutation was applied to a throwaway copy; `validate.mjs` exited non-zero with
-the message shown.
+**These are now automated.** Every row below is a test in `test/validate.test.mjs`,
+run by `npm test` against a throwaway copy of the repo. The table is kept as the
+readable index of what is guarded; the tests are what proves it still fires.
 
 | Fault | Message |
 |---|---|
