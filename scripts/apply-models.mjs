@@ -145,4 +145,6 @@ log(`\nwrote ${Object.keys(overrides).length} agent overrides to ${SETTINGS}`);
 for (const [name, entry] of Object.entries(overrides)) {
   if (!name.startsWith("pi-workflow.")) log(`  ${name.padEnd(16)} ${entry.model}`);
 }
-log("\nRestart pi for these to take effect, then verify with:  /subagents-models");
+log("\nRestart pi for these to take effect, then verify with:");
+log("  /subagents         pw-* agents (source: package) and their models");
+log("  /subagents-models  builtins only - shows the oracle override");

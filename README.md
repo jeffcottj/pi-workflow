@@ -29,7 +29,7 @@ bash "$(pi list | grep -A1 pi-workflow | tail -1 | xargs)"/scripts/bootstrap.sh
 
 `pi list` prints each installed package's resolved path — use it if the one-liner
 does not match your layout. For a git install that is normally
-`~/.pi/agent/npm/node_modules/pi-workflow`.
+`~/.pi/agent/git/github.com/jeffcottj/pi-workflow`.
 
 Restart pi. The four skills appear as `/skill:groundwork`, `/skill:blueprint`,
 `/skill:build`, `/skill:yeet`.

@@ -66,7 +66,10 @@ These cannot run through `pi -p`; they need the TUI.
 - [ ] A `/skill:build` run with a real parallel wave, reviewer gate and per-package
       commits
 - [ ] `/skill:yeet` refusing on a seeded `AKIA…` in a staged file
-- [ ] `/subagents-models` reporting the routed models after a pi restart
+- [ ] `/subagents` listing the six `pw-*` agents with source `package`, and each
+      one's model matching `config/models.json`, after a pi restart.
+      `/subagents-models` is builtin-only — it will only ever show the `oracle`
+      override, never the `pw-*` routing.
 
 Suggested first real run, small enough to inspect end to end:
 
