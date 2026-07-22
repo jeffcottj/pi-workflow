@@ -62,9 +62,26 @@ parent of the `skills/` directory containing this skill).
 
 - Project root = the git top-level (`git rev-parse --show-toplevel`), else cwd.
 - Ensure `<project-root>/.pi-workflow/` exists; create it if not.
-- **Verify it is ignored**: `git check-ignore -q .pi-workflow`. If that fails and
-  this is a git repo, add `.pi-workflow/` to `.gitignore` immediately and say so.
-  Planning artifacts must never be committable.
+- **Verify it is ignored**: `git check-ignore -q .pi-workflow`, and the same for
+  `.pi-subagents` (pi-subagents writes full run transcripts there — hundreds of
+  kilobytes of fetched page content per run). If either fails and this is a git
+  repo, add it to `.gitignore` immediately and say so.
+- **Then verify nothing is already tracked**:
+
+  ```sh
+  git ls-files --cached .pi-workflow .pi-subagents
+  ```
+
+  **A `.gitignore` entry does not untrack what is already in the index.** If that
+  command prints anything, the ignore is cosmetic and those files are still staged
+  for the next commit. Fix it and say so:
+
+  ```sh
+  git rm -r --cached .pi-workflow .pi-subagents
+  ```
+
+  Planning artifacts must never be committable, and "I added it to .gitignore" is
+  not evidence that they are not.
 - Read `state.json` if present. Its schema is in `shared/artifacts.md`.
 
 ## 4. Announce

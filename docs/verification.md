@@ -22,7 +22,7 @@ so it is labelled as such rather than folded into the tables above.
 | `apply-models.mjs` | wrote 13 overrides; backup created; `theme`, `defaultModel`, `defaultProvider`, `packages` all preserved |
 | README bootstrap one-liner | resolves to the package root and finds `scripts/bootstrap.sh` |
 | `bash -n scripts/bootstrap.sh` | syntax clean |
-| `npm test` | 60 pass, 0 fail — `validate.mjs` (repo and `--shards`), `apply-models.mjs`, `suggest-models.mjs`, `doctor.mjs`, `apply-web-search.mjs` against faked machines |
+| `npm test` | 64 pass, 0 fail — `validate.mjs` (repo and `--shards`), `apply-models.mjs`, `suggest-models.mjs`, `doctor.mjs`, `apply-web-search.mjs` against faked machines |
 | `doctor.mjs` on this machine | 0 failures, 0 warnings, 11 ok |
 
 ## Seeded faults — all caught
@@ -133,6 +133,34 @@ Also found while fixing: `shared/plan-shard-schema.md` claimed
 `scripts/validate.mjs` checked shards. It never had — plans live in the gitignored
 `.pi-workflow/`, outside the repo the validator walks. `--shards <dir>` makes the
 claim true rather than deleting it.
+
+## Bugs found in a live build — junk-drawer, 2026-07-21
+
+The `pkg-02-scrape-content` package timed out twice (25:00 killed, then 16:54
+SIGTERM), $0.95 spent, `src/data/` empty. Root cause was not the crawl being slow.
+
+| Finding | Evidence |
+|---|---|
+| `lib.mjs` exported `launchBrowser()` returning `{browser, context}` and **nothing created a page**; no `index.mjs` existed | `TypeError: page.goto is not a function at home.mjs:4` |
+| `waitUntil: 'networkidle'` against a site with live analytics never settles | bash calls dying at the 180s command timeout, twice in one 4-minute window |
+| A missing selector makes a locator read wait its full default timeout; inside a loop that multiplies | `home` scraper at 90s, six `.content` boxes |
+| Debug probes written **inside `owns`**, so a commit would have swept them up | 25 `inspect_*` / `test_*` files in `scripts/scrape/` |
+| `home.mjs` returned early on its fallback branch **without calling `writeJSON`** | `home.json` unreachable on that path |
+| **`.pi-workflow/` and `.pi-subagents/` were not gitignored and 37 files were staged** | `git ls-files --cached` — including 400KB run transcripts |
+
+After fixing: **8/8 scrapers, ~20 seconds total.**
+
+The last one is the sharpest. `shared/preflight.md` told every skill to add
+`.pi-workflow/` to `.gitignore` — but **a .gitignore entry does not untrack what is
+already in the index**, and nothing checked. Preflight now verifies with
+`git ls-files --cached` and prescribes `git rm -r --cached`;
+`validate.mjs --shards` fails on both the missing ignore and the tracked files.
+
+Fixed in the repo: scratch convention (`.pi-workflow/scratch/<pkg-id>/`) so probes
+cannot land in `owns`; `pw-worker` must bound every command it runs; build reads the
+file list before staging and refuses paths under the artifact directories; shards
+must state the target's DOM shape so a worker never reverse-engineers it under a
+clock.
 
 ## Not yet verified — needs an interactive session
 

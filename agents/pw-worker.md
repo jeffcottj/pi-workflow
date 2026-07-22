@@ -33,6 +33,15 @@ These are not preferences. Violating any of them corrupts a parallel build.
 - **Never install a package globally**, and never add a dependency the plan did
   not specify. If you need one, report it.
 - **Never weaken a test to make it pass.** If a test is wrong, say so.
+- **Throwaway diagnostics go in `.pi-workflow/scratch/<your-package-id>/`.** Probes,
+  selector experiments, print-the-shape scripts, anything you write to learn rather
+  than to ship. Never inside your `owns` globs: the orchestrator commits what those
+  globs match, so a probe left there gets committed. `inspect_thing.mjs` through
+  `inspect_thing5.mjs` in a source directory is the shape of this mistake.
+- **Bound every command.** Pass an explicit timeout to anything that waits on a
+  network, a browser, or a subprocess, and keep it well under your own command
+  timeout. A single hung command can consume a fifth of your package's budget, and
+  you do not get that time back.
 
 ## Method
 

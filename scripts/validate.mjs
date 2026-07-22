@@ -461,8 +461,12 @@ if (shardsIdx !== -1) {
       }
       shards.set(fm.id, { fm, path, file });
 
+      // `<id>.md`, or `<NN>-<id>.md` - blueprint writes the ordering prefix into
+      // the filename while the id carries its own, so both spellings are real.
       if (!fm.id) err(path, "id is required");
-      else if (`${fm.id}.md` !== file) err(path, `id "${fm.id}" must match the filename`);
+      else if (file !== `${fm.id}.md` && !new RegExp(`^\\d+-${fm.id}\\.md$`).test(file)) {
+        err(path, `id "${fm.id}" must match the filename (expected ${fm.id}.md or NN-${fm.id}.md)`);
+      }
       // A list, not a scalar: `acceptance: yes` is not a checkable criterion.
       if (!Array.isArray(fm.acceptance) || !fm.acceptance.length) {
         err(path, "acceptance is required and must be a list of checkable criteria");
@@ -521,6 +525,44 @@ if (shardsIdx !== -1) {
     for (const id of shards.keys()) walk(id, []);
 
     ok(`${shards.size} shard(s) checked`);
+
+    // The plan dir is <project>/.pi-workflow/plan, so the project root is two up.
+    // Planning artifacts and subagent transcripts must be untrackable there.
+    const projectRoot = dirname(dirname(shardDir));
+    const gitDir = join(projectRoot, ".git");
+    if (existsSync(gitDir)) {
+      for (const dir of [".pi-workflow", ".pi-subagents"]) {
+        if (!existsSync(join(projectRoot, dir))) continue;
+        try {
+          execFileSync("git", ["-C", projectRoot, "check-ignore", "-q", dir], { stdio: "ignore" });
+        } catch {
+          err(join(projectRoot, ".gitignore"), `${dir}/ is not gitignored - plans and transcripts must never be committable`);
+        }
+      }
+      // Adding a .gitignore entry does not untrack what is already in the index.
+      // That distinction is the whole bug: the ignore looks right and the files
+      // are still staged.
+      try {
+        const tracked = execFileSync(
+          "git",
+          ["-C", projectRoot, "ls-files", "--cached", ".pi-workflow", ".pi-subagents"],
+          { encoding: "utf8" },
+        )
+          .split("\n")
+          .filter(Boolean);
+        if (tracked.length) {
+          err(
+            projectRoot,
+            `${tracked.length} planning artifact(s) are tracked by git despite .gitignore` +
+              ` - .gitignore does not untrack what is already staged.` +
+              ` Fix: git -C ${projectRoot} rm -r --cached .pi-workflow .pi-subagents`,
+          );
+        }
+      } catch {
+        // Not a usable git repo; the check above already covered what it can.
+      }
+      ok("planning artifacts are untrackable");
+    }
   }
 }
 

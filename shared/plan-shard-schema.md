@@ -73,6 +73,13 @@ when the work is genuinely long, not to paper over a package that should be two.
 Raising the global ceiling to fit one slow package removes the runaway guard from
 every other package in the plan.
 
+**Say in the shard what the target's shape is**, for anything scraped or parsed:
+the selectors, the endpoints, the pagination scheme, whether the content is
+server-rendered. A worker that has to reverse-engineer a page's DOM will do it by
+writing one probe script per hypothesis, and each probe costs a full page load. That
+is discovery work, and discovery belongs in blueprint's research — cited in the
+shard's Context — not in a timeboxed implementation package.
+
 ## Invariants
 
 `blueprint` enforces these before writing; `build` re-checks before executing;

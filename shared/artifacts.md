@@ -14,10 +14,28 @@ another device, and covered by a single `.gitignore` line.
 ├── research/
 │   ├── codebase.md             # scout recon (brownfield)
 │   └── <topic>.md              # cited web research
+├── scratch/
+│   └── <pkg-id>/               # throwaway probes. Gitignored, never committed.
 └── log/
     ├── build-<iso8601>.md      # wave summaries, costs, decisions
     └── subagent/<pkg-id>-<n>.md
 ```
+
+## scratch/
+
+Diagnostic scripts a worker writes to understand something — a selector probe, a
+one-off request, a print-the-shape script — go in `scratch/<pkg-id>/`, **never
+inside the package's `owns` globs**.
+
+`owns` defines what build commits. A worker debugging a scraper by writing
+`inspect_dining_vm.mjs` through `inspect_dining_vm5.mjs` into an owned directory
+does not just make a mess; it makes a mess that `git add` picks up, because B4
+stages the package's files and those files match. Scratch under `.pi-workflow/` is
+covered by the same single `.gitignore` line as everything else here, so it cannot
+reach a commit no matter how the globs are written.
+
+Delete a package's scratch directory when it completes. It is evidence while the
+package is in flight and litter afterwards.
 
 ## state.json
 

@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync, renameSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { REPO, run, out, tmp } from "./support/harness.mjs";
 
 /** Write a plan directory from {filename: frontmatter-object}. */
@@ -77,6 +78,14 @@ test("an id that does not match its filename is rejected", () => {
   assert.match(out(r), /must match the filename/);
 });
 
+test("blueprint's NN-<id>.md filename is accepted", () => {
+  const dir = plan({ "01-a": OK_SHARD });
+  // Rename to the prefixed form blueprint actually writes.
+  renameSync(join(dir, "01-a.md"), join(dir, "07-01-a.md"));
+  const r = check(dir);
+  assert.equal(r.code, 0, out(r));
+});
+
 test("depends_on naming a nonexistent shard is rejected", () => {
   const r = check(plan({ "01-a": { ...OK_SHARD, depends_on: ["99-ghost"] } }));
   assert.equal(r.code, 1);
@@ -138,4 +147,43 @@ test("--shards without a directory is reported", () => {
 test("the repo still validates when --shards is absent", () => {
   const r = run(join(REPO, "scripts", "validate.mjs"), [], { cwd: REPO });
   assert.equal(r.code, 0, out(r));
+});
+
+// ------------------------------------------------- planning artifacts in git
+
+/** A git repo with a plan dir at <root>/.pi-workflow/plan. */
+function project({ ignore = true, stage = false } = {}) {
+  const root = tmp();
+  const planDir = join(root, ".pi-workflow", "plan");
+  mkdirSync(planDir, { recursive: true });
+  writeFileSync(
+    join(planDir, "01-a.md"),
+    `---\nid: 01-a\ndepends_on:\nowns:\n  - src/**\nacceptance:\n  - "x"\n---\n\n# Goal\nDone.\n`,
+  );
+  writeFileSync(join(root, ".pi-workflow", "state.json"), "{}");
+  const git = (...args) => execFileSync("git", ["-C", root, ...args], { stdio: "ignore" });
+  git("init", "-q");
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  if (stage) git("add", "-Af");
+  writeFileSync(join(root, ".gitignore"), ignore ? ".pi-workflow/\n.pi-subagents/\n" : "node_modules/\n");
+  return planDir;
+}
+
+test("an unignored .pi-workflow is rejected", () => {
+  const r = check(project({ ignore: false }));
+  assert.equal(r.code, 1);
+  assert.match(out(r), /\.pi-workflow\/ is not gitignored/);
+});
+
+test("an ignored .pi-workflow passes", () => {
+  const r = check(project({ ignore: true }));
+  assert.equal(r.code, 0, out(r));
+});
+
+test("artifacts already staged are rejected even when gitignored", () => {
+  const r = check(project({ ignore: true, stage: true }));
+  assert.equal(r.code, 1, "a .gitignore entry does not untrack a staged file");
+  assert.match(out(r), /tracked by git despite \.gitignore/);
+  assert.match(out(r), /rm -r --cached/);
 });

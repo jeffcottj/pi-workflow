@@ -61,8 +61,12 @@ subagent({
   tasks: [ { agent: "pi-workflow.pw-worker", model: <roles.worker.model>,
              task: "Implement work package <id>. Read .pi-workflow/plan/00-overview.md
                     and .pi-workflow/plan/<id>.md in full first. You may only create or
-                    modify files matching that package's `owns` globs. Verify every
-                    acceptance criterion by running it before reporting done." },
+                    modify files matching that package's `owns` globs. Throwaway
+                    diagnostics - selector probes, one-off requests, print-the-shape
+                    scripts - go in .pi-workflow/scratch/<id>/, never inside `owns`.
+                    Bound every command you run well under your own command timeout;
+                    one hung command can eat a fifth of this package's budget. Verify
+                    every acceptance criterion by running it before reporting done." },
            ... ],
   concurrency: <wave size>,
   context: "fresh",
@@ -111,6 +115,13 @@ Then mark `blocked`, continue with packages that do not depend on it, and stop t
 report at the end of the wave.
 
 ### B4. Commit on pass
+
+**Read the file list before staging.** `git add` on a package's `owns` globs stages
+whatever is there, including anything the worker left behind. If files appear that
+the shard's Steps and Tests never mention — `inspect_*`, `test_*`, `tmp_*`, numbered
+variants of one another — they are debugging litter that belonged in
+`.pi-workflow/scratch/<id>/`. Delete them and say so. Never commit them, and never
+silently keep them because they matched a glob.
 
 `git add` **only** the package's files, then:
 
@@ -245,6 +256,9 @@ Otherwise keep going.
   `validate.mjs` still collapses onto one model when neither is in this machine's
   catalog and both fall back to the session model. Stop; do not review anyway.
 - Never modify the plan to match the code. If the plan is wrong, stop and say so.
+- Never stage a path under `.pi-workflow/` or `.pi-subagents/`. If `git status`
+  shows them, they were tracked before the ignore existed — `git rm -r --cached`
+  them and say so. A `.gitignore` entry does not untrack a staged file.
 - Never retry a timed-out package unchanged when it made real progress. Same
   budget, same context reset, same wall — it only costs the user the time twice.
 - Never raise `limits.packageTimeoutMin` to accommodate one package. Use that
