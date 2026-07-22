@@ -5,6 +5,11 @@ What was actually run against pi 0.81.1 / pi-subagents 0.35.1 /
 
 Nothing below is asserted from reading code. Each line was executed.
 
+Two sources, kept separate on purpose: checks run directly against the repo, and
+what a live session on Fedora 44 established. The live-run section is the author's
+report of a session in another terminal — real evidence, but not re-executed here,
+so it is labelled as such rather than folded into the tables above.
+
 ## Passed
 
 | Check | Result |
@@ -72,24 +77,50 @@ missing its siblings. Per-family commands were taken from each vendor's own
 install page — GitHub CLI `docs/install_linux.md`, Microsoft Learn for `az` and
 PowerShell — not translated from the Debian ones.
 
+## Live run — Fedora 44, 2026-07-21
+
+First use of the workflow on a real sample project, in an interactive session.
+Reported by the author rather than re-executed here.
+
+**Package version under test: `5f66219`** — the initial commit, so *before* the
+platform fix above and before the `/subagents-models` doc correction. A git-installed
+package does not track the remote until `pi update`, so this run exercised the
+Ubuntu-only catalog. That is how the bug was found.
+
+| Stage | What it establishes |
+|---|---|
+| `/skill:groundwork` | Ran to the consent step and beyond; surfaced the `apt`-on-Fedora defect. `ask_user_question` therefore rendered against a real dialog. Completed far enough that blueprint could follow. |
+| `/skill:blueprint` | Completed and produced a plan — build reads `plan/`, and build started, so the shards exist and are readable. |
+| `/skill:build` | **In flight at time of writing. Outcome unrecorded.** |
+| `/subagents` | Lists all six `pw-*` agents with source `package`, after a pi restart. Their models were *not* compared against `config/models.json`. |
+
+Still open from this run, and not to be inferred from it:
+
+- The groundwork re-probe loop and its `tools.md` output were not inspected.
+- Whether the blueprint ledger **grows** when an answer implies new decisions —
+  a plan existing does not show the interview looped rather than ran once.
+- Everything about build: parallel waves, the reviewer gate on a different model,
+  per-package commits, the soft-budget prompt.
+
 ## Not yet verified — needs an interactive session
 
 These cannot run through `pi -p`; they need the TUI.
 
-- [ ] `ask_user_question` dialog rendering: previews, per-option notes,
-      multi-select, the "Type something." row
+- [x] `ask_user_question` dialog rendering — exercised by the groundwork run above.
+      Previews, per-option notes and multi-select were not individually confirmed.
 - [ ] A full `/skill:groundwork` run: probe → consent → install → re-probe loop →
-      `tools.md`
+      `tools.md` — reached consent, back half unverified
 - [ ] `/skill:groundwork` on a non-Debian machine offering only commands for that
       machine's package manager, and researching rather than guessing where the
-      catalog has no entry for the family
+      catalog has no entry for the family — **needs a run on `e322b92` or later**
 - [ ] A full `/skill:blueprint` interview, including that the ledger **grows** when
-      an answer implies new decisions
+      an answer implies new decisions — a plan was produced; the looping was not
+      observed
 - [ ] A `/skill:build` run with a real parallel wave, reviewer gate and per-package
-      commits
+      commits — one run in flight, result pending
 - [ ] `/skill:yeet` refusing on a seeded `AKIA…` in a staged file
-- [ ] `/subagents` listing the six `pw-*` agents with source `package`, and each
-      one's model matching `config/models.json`, after a pi restart.
+- [x] `/subagents` listing the six `pw-*` agents with source `package`, after a pi
+      restart. Models not yet checked against `config/models.json`.
       `/subagents-models` is builtin-only — it will only ever show the `oracle`
       override, never the `pw-*` routing.
 
