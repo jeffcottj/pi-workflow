@@ -66,7 +66,7 @@ subagent({
            ... ],
   concurrency: <wave size>,
   context: "fresh",
-  timeoutMs: <limits.packageTimeoutMin * 60000>,
+  timeoutMs: <(shard.timeout_min ?? limits.packageTimeoutMin) * 60000>,
   turnBudget: <limits.turnBudget>,
   toolBudget: <limits.toolBudget>,
   control: <limits.control>
@@ -139,8 +139,44 @@ Then **continue to the next wave**. There is no approval gate between waves.
 
 Per `config/limits.json`. These catch stuck agents; they do not ration work.
 
-- A subagent exceeding `timeoutMs` is killed, logged as a timeout, retried within
-  `maxRetriesPerPackage`. **Always report timeouts** in the wave summary.
+### C0. A timeout is not a test failure
+
+The two need different handling and historically got the same. A failing test tells
+you *what* is wrong, so a retry with those findings can succeed. A timeout tells you
+only that the clock ran out — and because retries launch with `context: "fresh"`,
+an identical retry re-does everything the killed agent already did before it can
+get any further. Two retries of a package that needs 40 minutes is 75 minutes spent
+arriving at the same wall.
+
+**On timeout, do not retry blind.** In order:
+
+1. **Establish what survived.** The killed agent's edits were never committed
+   (B4 commits only on pass) and were never reverted, so they are sitting in the
+   working tree. Run `git status --short` and diff the package's `owns` globs.
+2. **Say what it got done**, concretely: which files exist, whether tests were
+   written, whether anything ran. "Timed out" alone is not a report.
+3. **Judge which kind of timeout this was:**
+   - **Stuck** — no meaningful progress, repeated identical tool calls, empty or
+     churning diff. This is what the guard is for. Retry once with the findings,
+     exactly like a test failure.
+   - **Undersized** — real progress, killed mid-work. The budget was wrong, not the
+     agent. **Do not retry unchanged**; it will be killed at the same point.
+4. **For an undersized package, ask** — never decide alone, and never silently
+   raise a global limit:
+   - **split** the package (usual answer for write-then-run work: the code and its
+     fixture tests in one, the live run in another with `network: true`)
+   - **raise `timeout_min` for this package only**, and say what it becomes
+   - **take it manual** — hand over the command and verify after
+   - **skip** it, marking `blocked`, and continue with independent packages
+5. **Never raise `limits.packageTimeoutMin` to fit one slow package.** That removes
+   the runaway guard from every other package in the plan. `timeout_min` in the
+   shard exists for exactly this.
+
+A package that times out twice for the same reason is `blocked`. Escalating a clock
+to `oracle` produces a diagnosis of a stopwatch.
+
+- A subagent exceeding `timeoutMs` is killed and logged. **Always report timeouts**
+  in the wave summary. A timeout is **not** a failure — see below.
 - `turnBudget`, `toolBudget` and `control.*` are pi-subagents' native loop guards.
   Pass them on every launch.
 - When cumulative reported cost crosses `softBudgetUsd`, finish the in-flight wave,
@@ -209,4 +245,8 @@ Otherwise keep going.
   `validate.mjs` still collapses onto one model when neither is in this machine's
   catalog and both fall back to the session model. Stop; do not review anyway.
 - Never modify the plan to match the code. If the plan is wrong, stop and say so.
+- Never retry a timed-out package unchanged when it made real progress. Same
+  budget, same context reset, same wall — it only costs the user the time twice.
+- Never raise `limits.packageTimeoutMin` to accommodate one package. Use that
+  shard's `timeout_min`.
 - Never weaken or skip a test to make a package pass.

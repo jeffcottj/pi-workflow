@@ -22,7 +22,7 @@ so it is labelled as such rather than folded into the tables above.
 | `apply-models.mjs` | wrote 13 overrides; backup created; `theme`, `defaultModel`, `defaultProvider`, `packages` all preserved |
 | README bootstrap one-liner | resolves to the package root and finds `scripts/bootstrap.sh` |
 | `bash -n scripts/bootstrap.sh` | syntax clean |
-| `npm test` | 45 pass, 0 fail — `validate.mjs`, `apply-models.mjs`, `suggest-models.mjs`, `doctor.mjs`, `apply-web-search.mjs` against faked machines |
+| `npm test` | 60 pass, 0 fail — `validate.mjs` (repo and `--shards`), `apply-models.mjs`, `suggest-models.mjs`, `doctor.mjs`, `apply-web-search.mjs` against faked machines |
 | `doctor.mjs` on this machine | 0 failures, 0 warnings, 11 ok |
 
 ## Seeded faults — all caught
@@ -104,6 +104,35 @@ Still open from this run, and not to be inferred from it:
   a plan existing does not show the interview looped rather than ran once.
 - Everything about build: parallel waves, the reviewer gate on a different model,
   per-package commits, the soft-budget prompt.
+
+## Bug found in use — build timeout, 2026-07-21
+
+**A scraping package was killed at 25 minutes having written the scrapers but not
+run them.** The timeout fired as configured; the design around it was wrong in
+three ways.
+
+1. `config/limits.json` calls the timeout "runaway detection… not to ration work",
+   and build repeated it. Nothing distinguished a **stuck** agent from one whose
+   job was simply larger than the budget. This agent had made real progress.
+2. The timeout path retried blind — no findings handed over, and `context: "fresh"`
+   means the retry re-does the writing before it can reach the running. With
+   `maxRetriesPerPackage: 2` that is up to 75 minutes to reach the same wall. The
+   *test-failure* path had always been smarter, passing findings to attempt 2.
+3. The root cause was upstream: shard invariant 5 sizes a package by its **diff**,
+   which measures writing, not running. A 200-line scraper is unbounded at runtime
+   because rate limits, pagination and third-party uptime are not the plan's to
+   control.
+
+Fixed: build's Phase C now separates timeout from failure — establish what survived
+in the working tree, report it concretely, judge stuck vs undersized, and for
+undersized **ask** (split / raise `timeout_min` / manual / skip) rather than retry.
+Shards gained `network` and `timeout_min`; blueprint must split write-from-run for
+third-party work; `validate.mjs --shards` enforces it.
+
+Also found while fixing: `shared/plan-shard-schema.md` claimed
+`scripts/validate.mjs` checked shards. It never had — plans live in the gitignored
+`.pi-workflow/`, outside the repo the validator walks. `--shards <dir>` makes the
+claim true rather than deleting it.
 
 ## Not yet verified — needs an interactive session
 

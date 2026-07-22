@@ -158,8 +158,11 @@ Bootstrap only fills the key in when it is absent, so a later `/curator on` stic
 Runaway detection only — **no parallelism cap and no hard budget kill.** Every
 package whose dependencies are satisfied launches immediately. What is enforced:
 
-- `packageTimeoutMin` — a subagent past this is stuck, not thorough. Killed, logged,
-  retried once.
+- `packageTimeoutMin` — the default per-package ceiling. A **timeout is not a test
+  failure**: build establishes what survived in the working tree, judges whether the
+  agent was stuck or the budget was simply too small, and for the latter asks
+  rather than retrying into the same wall. A shard can override it with
+  `timeout_min`; never raise this global to fit one slow package.
 - `turnBudget` / `toolBudget` / `control` — pi-subagents' native loop guards.
 - `softBudgetUsd` — on crossing, build finishes the in-flight wave and **asks**:
   continue, raise, or stop. It never aborts mid-package.
@@ -218,6 +221,7 @@ talks to a remote, and it refuses on any secret-scan hit with no override.
 ```sh
 npm test                         # 45 tests over scripts/, no dependencies
 node scripts/validate.mjs        # frontmatter, routing, catalog, references, secrets
+node scripts/validate.mjs --shards <project>/.pi-workflow/plan   # check a written plan
 node scripts/doctor.mjs          # is this machine actually set up?
 node scripts/apply-models.mjs --dry-run
 node scripts/suggest-models.mjs  # proposal only; --write to apply

@@ -15,8 +15,14 @@ const VERBOSE = process.argv.includes("--verbose");
 
 const errors = [];
 const warnings = [];
-const err = (file, msg) => errors.push(`${relative(ROOT, file) || file}: ${msg}`);
-const warn = (file, msg) => warnings.push(`${relative(ROOT, file) || file}: ${msg}`);
+// Paths inside the repo read better relative; a --shards directory is usually
+// outside it, where a relative path is a wall of "../".
+const show = (file) => {
+  const rel = relative(ROOT, file);
+  return !rel || rel.startsWith("..") ? file : rel;
+};
+const err = (file, msg) => errors.push(`${show(file)}: ${msg}`);
+const warn = (file, msg) => warnings.push(`${show(file)}: ${msg}`);
 const ok = (msg) => VERBOSE && console.log(`  ok  ${msg}`);
 
 const read = (p) => readFileSync(p, "utf8");
@@ -428,6 +434,95 @@ for (const file of walk(ROOT)) {
   }
 }
 ok("no secrets detected");
+
+// ------------------------------------------------------------ 10. plan shards
+// Opt-in: plans live in .pi-workflow/, which is gitignored and outside this repo,
+// so there is nothing to check unless a directory is named.
+//
+//   node scripts/validate.mjs --shards <project>/.pi-workflow/plan
+const shardsIdx = process.argv.indexOf("--shards");
+if (shardsIdx !== -1) {
+  const shardDir = process.argv[shardsIdx + 1];
+  if (!shardDir) err("--shards", "needs a directory: --shards <plan-dir>");
+  else if (!existsSync(shardDir)) err(shardDir, "no such directory");
+  else {
+    const files = readdirSync(shardDir)
+      .filter((f) => f.endsWith(".md") && f !== "00-overview.md")
+      .sort();
+    if (!files.length) warn(shardDir, "no shards found");
+
+    const shards = new Map();
+    for (const file of files) {
+      const path = join(shardDir, file);
+      const fm = frontmatter(read(path));
+      if (!fm) {
+        err(path, "missing YAML frontmatter");
+        continue;
+      }
+      shards.set(fm.id, { fm, path, file });
+
+      if (!fm.id) err(path, "id is required");
+      else if (`${fm.id}.md` !== file) err(path, `id "${fm.id}" must match the filename`);
+      // A list, not a scalar: `acceptance: yes` is not a checkable criterion.
+      if (!Array.isArray(fm.acceptance) || !fm.acceptance.length) {
+        err(path, "acceptance is required and must be a list of checkable criteria");
+      }
+
+      const isManual = String(fm.manual) === "true";
+      const isNetwork = String(fm.network) === "true";
+      const owns = Array.isArray(fm.owns) ? fm.owns : [];
+
+      // Invariant 6.
+      if (isManual && owns.length) err(path, "manual: true packages must have no owns");
+      if (!isManual && !owns.length) err(path, "owns is required unless manual: true");
+
+      // Invariant 8.
+      if ("timeout_min" in fm) {
+        const t = Number(fm.timeout_min);
+        if (!Number.isInteger(t) || t <= 0) {
+          err(path, `timeout_min must be a positive integer of minutes, got "${fm.timeout_min}"`);
+        }
+      }
+
+      // Invariant 7: the one that would have caught the scraper.
+      if (isNetwork && !isManual && !("timeout_min" in fm)) {
+        err(
+          path,
+          "network: true needs an explicit timeout_min (or manual: true) - the default" +
+            " budget will kill it mid-run and the retry starts from a fresh context",
+        );
+      }
+
+      // Invariant 3: no open questions left for the implementer.
+      const body = read(path).replace(/^---[\s\S]*?---/, "");
+      const open = body.match(/\b(TBD|decide whether|either\/or|to be decided)\b/i);
+      if (open) err(path, `open question left in the shard: "${open[0]}"`);
+    }
+
+    // Invariant 2: depends_on names real ids and is acyclic.
+    for (const [id, { fm, path }] of shards) {
+      for (const dep of Array.isArray(fm.depends_on) ? fm.depends_on : []) {
+        if (!shards.has(dep)) err(path, `depends_on names a shard that does not exist: ${dep}`);
+      }
+    }
+    const state = new Map();
+    const walk = (id, trail) => {
+      if (state.get(id) === "done") return;
+      if (state.get(id) === "open") {
+        err(shardDir, `depends_on cycle: ${[...trail, id].join(" -> ")}`);
+        return;
+      }
+      state.set(id, "open");
+      for (const dep of shards.get(id)?.fm.depends_on ?? []) {
+        if (shards.has(dep)) walk(dep, [...trail, id]);
+      }
+      state.set(id, "done");
+    };
+    for (const id of shards.keys()) walk(id, []);
+
+    ok(`${shards.size} shard(s) checked`);
+  }
+}
 
 // ----------------------------------------------------------------- report
 if (warnings.length) {

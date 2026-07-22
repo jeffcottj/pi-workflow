@@ -157,6 +157,16 @@ Every plan includes these unless the ledger explicitly rules them out:
 - **manual steps** — anything the user must do personally (DNS, provisioning,
   secrets, app registrations, licensing), each as its own `manual: true` shard
 
+**Split anything that talks to a third party.** Scraping, crawling, bulk API
+imports, migrations over real data: writing the code is bounded, running it is not.
+One package writes the code and unit-tests it against **recorded fixtures**,
+offline and deterministic. A **separate** package does the live run, with
+`network: true` and either a `timeout_min` sized to the real job or `manual: true`.
+
+A 200-line scraper that inherits the default 25-minute budget will be killed
+mid-crawl, and the retry starts from a fresh context — re-writing the scraper
+before it can re-run it. See "Runtime" in `shared/plan-shard-schema.md`.
+
 ### C4. Write the bodies
 
 Fan out, one task per shard, all at once:
@@ -217,3 +227,6 @@ If `plan/` already exists, ask which:
 - Never state a library version, API signature, or price without having fetched it.
 - Never ask what is already in `codebase.md`, `tools.md`, or the ledger.
 - Never skip the re-derivation pass in B2.5.
+- Never let a package's acceptance criteria depend on a third party without
+  `network: true` and a `timeout_min` that reflects the real job. A gate as flaky
+  as someone else's uptime is a gate everyone learns to ignore.

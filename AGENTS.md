@@ -47,7 +47,7 @@ documentation for humans. Optimise for an agent following it literally.
 | Script | Purpose |
 |---|---|
 | `bootstrap.sh` | One-shot machine setup; calls the four below. Safe to re-run. |
-| `validate.mjs` | Checks the **repo**: frontmatter, catalog, references, secrets. |
+| `validate.mjs` | Checks the **repo**: frontmatter, catalog, references, secrets. `--shards <dir>` also checks a written plan. |
 | `doctor.mjs` | Checks the **machine**: packages, agents, resolved models, routing. |
 | `apply-models.mjs` | Writes `config/models.json` into `subagents.agentOverrides`. |
 | `suggest-models.mjs` | Proposes role→model mapping from the local catalog. |
