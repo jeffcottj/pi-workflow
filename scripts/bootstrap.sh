@@ -58,8 +58,16 @@ for pkg in "${REQUIRED[@]}"; do
 done
 
 # ------------------------------------------------------------ model routing
+# apply-models exits non-zero when nothing resolved. That is not a reason to abort
+# - the packages are already installed and useful - but it must not read as success.
 head "model routing"
-node "$ROOT/scripts/apply-models.mjs"
+ROUTING_OK=1
+if ! node "$ROOT/scripts/apply-models.mjs"; then
+  ROUTING_OK=0
+  info ""
+  info "Model routing did not take. The packages are installed and the skills will"
+  info "load, but every agent will inherit your session model until this is fixed."
+fi
 
 # ------------------------------------------------------------ search curator
 # pi-web-access opens a browser curator on every top-level web_search. The
@@ -99,6 +107,12 @@ if ("workflow" in config) {
 }
 NODE
 
+# --------------------------------------------------------------------- doctor
+# The last word on whether this machine is actually set up, rather than on
+# whether this script reached its end.
+head "checks"
+node "$ROOT/scripts/doctor.mjs" || true
+
 # ------------------------------------------------------------------- summary
 head "done"
 if [ "$CHANGED" -eq 1 ]; then
@@ -106,10 +120,16 @@ if [ "$CHANGED" -eq 1 ]; then
 else
   info "No packages changed."
 fi
+if [ "$ROUTING_OK" -eq 0 ]; then
+  info ""
+  info "Fix model routing first:"
+  info "  node $ROOT/scripts/suggest-models.mjs           # propose a mapping"
+  info "  node $ROOT/scripts/suggest-models.mjs --write   # apply it"
+  info "  node $ROOT/scripts/apply-models.mjs             # route the agents"
+fi
 info ""
 info "Then check the skills are visible:"
 info "  /skill:groundwork   /skill:blueprint   /skill:build   /skill:yeet"
 info ""
-info "And that model routing took effect:"
-info "  /subagents        - the six pw-* agents, source 'package', with their models"
-info "  /subagents-models - builtins only; shows the oracle override"
+info "Re-run the checks any time:"
+info "  node $ROOT/scripts/doctor.mjs"

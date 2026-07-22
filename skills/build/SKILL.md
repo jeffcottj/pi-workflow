@@ -94,8 +94,9 @@ The **orchestrator** verifies, never the worker's self-report:
                      criteria in .pi-workflow/plan/<id>.md. Diff: <git diff>." })
    ```
 
-   `roles.reviewer` must not be the same model as `roles.worker`. If config makes
-   them equal, say so and pick a different reviewer model.
+   `reviewer` must not **resolve** to the same model as `worker` — checked after
+   fallback, not in the config file. Preflight has already established this; if it
+   reported a collapse, you stopped there and are not reading this line.
 
 **On failure:** send the specific findings to a fresh `pi-workflow.pw-worker` (attempt 2). On a
 second failure, escalate once:
@@ -204,6 +205,8 @@ Otherwise keep going.
 - Never `git push`. Never deploy. Never create cloud resources.
 - Never let a worker edit outside its package's `owns` globs.
 - Never mark a package complete on a subagent's say-so — verify it yourself.
-- Never let reviewer and worker share a model.
+- Never let reviewer and worker share a *resolved* model. A config that passes
+  `validate.mjs` still collapses onto one model when neither is in this machine's
+  catalog and both fall back to the session model. Stop; do not review anyway.
 - Never modify the plan to match the code. If the plan is wrong, stop and say so.
 - Never weaken or skip a test to make a package pass.

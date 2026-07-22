@@ -41,6 +41,19 @@ parent of the `skills/` directory containing this skill).
 - Verify the IDs exist: run `pi --list-models` and match. If a role's model is
   missing from the catalog, warn once naming the role and the missing ID, and let
   that role fall back to the session model. Never abort over a missing model.
+- **Then compare the resolved models, not the configured ones.** `config/models.json`
+  is validated for `reviewer` ≠ `worker`, but that check runs on what is written,
+  not on what a machine resolves. Where the config targets a provider this machine
+  does not have, *every* role falls back to the session model and the two collapse
+  onto it. Say so explicitly:
+
+  ```
+  worker and reviewer both resolved to <model> - review is not a second opinion.
+  Fix the routing:  node scripts/suggest-models.mjs
+  ```
+
+  `/skill:build` treats this as a **STOP**; every other skill warns once and
+  continues, because only build gates on the reviewer.
 - If `scripts/apply-models.mjs` has been run, `subagents.agentOverrides` already
   pins these. Pass `model` explicitly on each delegation anyway — it costs nothing
   and survives a machine where bootstrap was never run.

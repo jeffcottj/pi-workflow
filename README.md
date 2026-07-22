@@ -34,6 +34,17 @@ does not match your layout. For a git install that is normally
 Restart pi. The four skills appear as `/skill:groundwork`, `/skill:blueprint`,
 `/skill:build`, `/skill:yeet`.
 
+Bootstrap ends by running the doctor, which you can repeat at any time:
+
+```sh
+node scripts/doctor.mjs
+```
+
+It checks the companion packages, that the six `pw-*` agents are declared, that
+every role's model exists in *your* catalog, and — the one nothing else checks —
+that `worker` and `reviewer` resolve to different models. Each failure prints the
+command that fixes it.
+
 Private repo instead: `pi install git:git@github.com:jeffcottj/pi-workflow`.
 To update: `pi update git:github.com/jeffcottj/pi-workflow`.
 
@@ -100,10 +111,24 @@ Roles map to the `pw-*` agents. `scripts/apply-models.mjs` writes these into
 | `scribe` | `mimo-v2.5` | Docs do not need a frontier model |
 | `oracle` | `qwen3.7-max` | Escalation when worker and reviewer disagree twice |
 
-Defaults target the `opencode-go` catalog. Edit for your provider and re-run
-`node scripts/apply-models.mjs`; unknown model ids are skipped with a warning
-rather than written. `reviewer` sharing a model with `worker` is a validation
-error, not a preference.
+Defaults target the `opencode-go` catalog. **On any other provider none of these
+ids resolve**, every role falls back to the session model, and `worker` and
+`reviewer` land on the same one — which makes build's review gate self-review. So
+that is a hard failure now, not a warning:
+
+```sh
+node scripts/suggest-models.mjs           # propose a mapping from your catalog
+node scripts/suggest-models.mjs --write   # apply it (backs up first)
+node scripts/apply-models.mjs             # route the agents
+```
+
+`suggest-models` makes no claim about which model suits which role — that needs
+someone who knows what they cost and how they behave. It guarantees the one
+mechanical property nothing else enforces: worker and reviewer differ, by family
+where your catalog allows it. Edit the result.
+
+`reviewer` sharing a model with `worker` is a validation error in config and a
+**STOP** in build when it happens at resolution time.
 
 ### `~/.pi/web-search.json`
 
@@ -184,8 +209,14 @@ talks to a remote, and it refuses on any secret-scan hit with no override.
 
 ```sh
 node scripts/validate.mjs        # frontmatter, routing, catalog, references, secrets
+node scripts/doctor.mjs          # is this machine actually set up?
 node scripts/apply-models.mjs --dry-run
+node scripts/suggest-models.mjs  # proposal only; --write to apply
 ```
+
+`validate.mjs` checks the repo, `doctor.mjs` checks the machine. Both are needed:
+a config that validates cleanly still collapses worker and reviewer onto one model
+on a machine whose provider it does not target.
 
 Conventions for editing this repo are in `AGENTS.md`.
 

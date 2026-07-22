@@ -99,6 +99,32 @@ if (skipped.length) {
   for (const s of skipped) log(`  ${s}`);
 }
 
+// Writing nothing is not success. Every role falling back to the session model
+// puts worker and reviewer on the same model, and build's review gate becomes
+// self-review without ever saying so.
+if (known && !Object.keys(overrides).length) {
+  console.error(
+    `\nERROR: not one role resolved against this machine's model catalog.\n` +
+      `  config/models.json targets "${cfg.provider ?? "unknown"}" and nothing here matches,\n` +
+      `  so every pw- agent would inherit the session model - including both\n` +
+      `  worker and reviewer, which makes review a second opinion in name only.\n\n` +
+      `  Propose a mapping from the models you do have:\n` +
+      `    node scripts/suggest-models.mjs\n`,
+  );
+  process.exit(2);
+}
+
+// A partial resolution can collapse the same way: whichever of the two falls back
+// lands on the session model, and the other may already be it.
+const criticalMissing = ["worker", "reviewer"].filter((r) => !overrides[`pw-${r}`]);
+if (known && criticalMissing.length) {
+  log(
+    `\nwarning: ${criticalMissing.join(" and ")} did not resolve and will inherit the\n` +
+      `  session model. If that is also the other role's model, review is self-review.\n` +
+      `  Check with:  node scripts/doctor.mjs`,
+  );
+}
+
 // ------------------------------------------------------------- merge and write
 let settings = {};
 if (existsSync(SETTINGS)) {

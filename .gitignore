@@ -5,6 +5,9 @@
 # pi-subagents run artifacts
 .pi-subagents/
 
+# config backups written by scripts/suggest-models.mjs
+*.bak-*
+
 # node
 node_modules/
 
