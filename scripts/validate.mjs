@@ -229,6 +229,22 @@ try {
 }
 
 // ----------------------------------------------------------------- 6. catalog
+// Distro families groundwork can resolve an install command for. Adding one here
+// makes every family-bound catalog entry fail until it carries a command for it -
+// which is the point: the failure is the reminder.
+const FAMILIES = ["debian", "fedora", "arch"];
+
+// Package managers, mapped to the family whose machines actually have them.
+// `snap` is here because it ships on Ubuntu and essentially nowhere else by
+// default, so a snap install is a debian-family install in practice.
+const PKG_MANAGERS = [
+  [/\b(apt|apt-get|dpkg|snap)\b/, "debian"],
+  [/\b(dnf|dnf5|yum|rpm)\b/, "fedora"],
+  [/\b(pacman|yay|paru)\b/, "arch"],
+];
+
+const inferFamily = (cmd) => PKG_MANAGERS.find(([re]) => re.test(cmd))?.[1] ?? null;
+
 const catalogPath = join(ROOT, "catalog", "tools.yaml");
 if (!existsSync(catalogPath)) {
   err(catalogPath, "missing");
@@ -250,12 +266,46 @@ if (!existsSync(catalogPath)) {
     if (fields.sudo && !["true", "false"].includes(fields.sudo)) {
       errors.push(`${relative(ROOT, catalogPath)}:${line}: sudo must be true or false`);
     }
-    // The rule that matters: groundwork runs non-sudo installs directly.
-    if (fields.sudo === "false" && /\bsudo\b/.test(fields.install ?? "")) {
+
+    // Every install variant, base and per-family alike.
+    const installs = Object.entries(fields).filter(([k]) => k === "install" || k.startsWith("install_"));
+    for (const [key, cmd] of installs) {
+      if (key === "install_notes" || key === "install_family") continue;
+      const family = key === "install" ? null : key.slice("install_".length);
+      if (family && !FAMILIES.includes(family)) {
+        errors.push(
+          `${relative(ROOT, catalogPath)}:${line}: "${id}" has unknown platform key "${key}"` +
+            ` - supported families are ${FAMILIES.join(", ")}`,
+        );
+      }
+      // The rule that matters: groundwork runs non-sudo installs directly.
+      if (fields.sudo === "false" && /\bsudo\b/.test(cmd ?? "")) {
+        errors.push(
+          `${relative(ROOT, catalogPath)}:${line}: "${id}" declares sudo: false but ${key} uses sudo` +
+            " - groundwork would run it directly",
+        );
+      }
+    }
+
+    // A base install bound to one distro family needs a command for the others,
+    // or groundwork has nothing correct to offer there. Declared via
+    // install_family, otherwise inferred from the package manager it invokes.
+    const declaredFamily = fields.install_family;
+    if (declaredFamily && !FAMILIES.includes(declaredFamily)) {
       errors.push(
-        `${relative(ROOT, catalogPath)}:${line}: "${id}" declares sudo: false but its install command uses sudo` +
-          " - groundwork would run it directly",
+        `${relative(ROOT, catalogPath)}:${line}: "${id}" install_family "${declaredFamily}" is not one of ${FAMILIES.join(", ")}`,
       );
+    }
+    const baseFamily = declaredFamily ?? inferFamily(fields.install ?? "");
+    if (baseFamily && FAMILIES.includes(baseFamily)) {
+      for (const other of FAMILIES.filter((f) => f !== baseFamily)) {
+        if (!(`install_${other}` in fields)) {
+          errors.push(
+            `${relative(ROOT, catalogPath)}:${line}: "${id}" install targets the ${baseFamily} family` +
+              ` but has no install_${other} - use MANUAL if there is no scriptable path`,
+          );
+        }
+      }
     }
     if (at) ok(`catalog ${id}`);
   }

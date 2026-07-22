@@ -1,7 +1,13 @@
 # pi-workflow tool catalog
 # Probed by /skill:groundwork. See catalog/README.md for the entry schema.
-# Install commands target Ubuntu 24.04 with Node 24 and .NET present.
-# Rule: if `install` contains sudo, `sudo` MUST be true. groundwork never runs it.
+#
+# `install` is the default command; `install_debian` / `install_fedora` /
+# `install_arch` override it on that distro family. groundwork detects the family
+# and picks one - it never offers a command for a package manager the machine
+# does not have. Assumes Node 24 and .NET present.
+#
+# Rule: if any install variant contains sudo, `sudo` MUST be true. groundwork
+# never runs it.
 
 tools:
   # ---------------------------------------------------------------- version control
@@ -10,6 +16,9 @@ tools:
     kind: cli
     detect: gh --version
     install: "curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg && echo 'deb [signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main' | sudo tee /etc/apt/sources.list.d/github-cli.list && sudo apt update && sudo apt install gh -y"
+    install_fedora: "sudo dnf install -y gh"
+    install_arch: "sudo pacman -S --noconfirm github-cli"
+    install_notes: "Fedora ships gh in its own repos (verified: gh-2.94.0 on F44), so no extra repo is needed. If you need a newer release than Fedora carries, add GitHub's RPM repo instead: `sudo dnf install -y dnf5-plugins && sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo` (dnf5 syntax; dnf4 uses `config-manager --add-repo <url>`)."
     sudo: true
     scope: global
     auth: gh auth login
@@ -55,6 +64,10 @@ tools:
     kind: cli
     detect: az version
     install: "curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash"
+    install_family: debian
+    install_fedora: "sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc && sudo dnf install -y https://packages.microsoft.com/config/rhel/9.0/packages-microsoft-prod.rpm && sudo dnf install -y azure-cli"
+    install_arch: MANUAL
+    install_notes: "The default installer is Debian-only despite the neutral URL - hence install_family. Arch has no Microsoft-published package; install from the AUR (azure-cli) or use the distro-independent script at https://aka.ms/InstallAzureCli."
     sudo: true
     scope: global
     auth: az login
@@ -110,6 +123,9 @@ tools:
     kind: runtime
     detect: pwsh --version
     install: "sudo snap install powershell --classic"
+    install_fedora: "sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc && sudo dnf install -y https://packages.microsoft.com/config/rhel/9.0/packages-microsoft-prod.rpm && sudo dnf install -y powershell"
+    install_arch: MANUAL
+    install_notes: "Arch ships PowerShell only via the AUR (powershell-bin); install it with your AUR helper, or download the tar.gz from the PowerShell releases page."
     sudo: true
     scope: global
     domains: [powershell, power-platform, azure, windows]
@@ -120,7 +136,8 @@ tools:
     kind: runtime
     detect: docker info
     install: "curl -fsSL https://get.docker.com | sudo sh && sudo usermod -aG docker $USER"
-    install_notes: "Log out and back in after usermod for the group to take effect. `docker info` (not `docker --version`) is the detect command because the CLI can be present while the daemon is unreachable."
+    install_arch: "sudo pacman -S --noconfirm docker && sudo systemctl enable --now docker && sudo usermod -aG docker $USER"
+    install_notes: "get.docker.com covers Debian and Fedora families but refuses on Arch, hence install_arch. Log out and back in after usermod for the group to take effect. `docker info` (not `docker --version`) is the detect command because the CLI can be present while the daemon is unreachable."
     sudo: true
     scope: global
     domains: [docker, containers, local-dev, deploy]
@@ -150,7 +167,10 @@ tools:
     kind: cli
     detect: "npx --no-install playwright install --dry-run chromium >/dev/null 2>&1"
     install: "sudo npx playwright install-deps chromium"
-    install_notes: "Only needed when browsers fail to launch with missing shared libraries."
+    install_family: debian
+    install_fedora: MANUAL
+    install_arch: MANUAL
+    install_notes: "Only needed when browsers fail to launch with missing shared libraries. `playwright install-deps` supports Debian and Ubuntu only - on other families read the launch error, and install the named shared libraries with the distro's own package manager."
     sudo: true
     scope: global
     domains: [web, testing, e2e, browser]
@@ -179,6 +199,8 @@ tools:
     kind: cli
     detect: jq --version
     install: "sudo apt install -y jq"
+    install_fedora: "sudo dnf install -y jq"
+    install_arch: "sudo pacman -S --noconfirm jq"
     sudo: true
     scope: global
     domains: [any]
@@ -188,6 +210,8 @@ tools:
     kind: cli
     detect: rg --version
     install: "sudo apt install -y ripgrep"
+    install_fedora: "sudo dnf install -y ripgrep"
+    install_arch: "sudo pacman -S --noconfirm ripgrep"
     sudo: true
     scope: global
     domains: [any]

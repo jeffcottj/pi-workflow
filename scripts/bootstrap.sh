@@ -61,6 +61,44 @@ done
 head "model routing"
 node "$ROOT/scripts/apply-models.mjs"
 
+# ------------------------------------------------------------ search curator
+# pi-web-access opens a browser curator on every top-level web_search. The
+# workflow's research runs in subagents, which resolve to "none" regardless, so
+# the curator only ever differs from the research path - default it off.
+# Only fills the key in when absent: a later `/curator on` is a deliberate
+# choice and re-running bootstrap must not silently undo it.
+head "search curator"
+node --input-type=module - <<'NODE'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+const dir =
+  process.env.PI_CODING_AGENT_DIR ??
+  (process.env.XDG_CONFIG_HOME ? join(process.env.XDG_CONFIG_HOME, "pi") : join(homedir(), ".pi"));
+const file = join(dir, "web-search.json");
+
+let config = {};
+if (existsSync(file)) {
+  try {
+    config = JSON.parse(readFileSync(file, "utf8"));
+  } catch (e) {
+    console.log(`  skipped           ${file} is not valid JSON (${e.message}); leaving it alone`);
+    process.exit(0);
+  }
+}
+
+if ("workflow" in config) {
+  console.log(`  already set       workflow: ${config.workflow}`);
+} else {
+  config.workflow = "none";
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(file, `${JSON.stringify(config, null, 2)}\n`);
+  console.log(`  wrote             workflow: none -> ${file}`);
+  console.log("  raw search results, no browser curator. Re-enable with /curator on");
+}
+NODE
+
 # ------------------------------------------------------------------- summary
 head "done"
 if [ "$CHANGED" -eq 1 ]; then

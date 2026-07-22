@@ -20,7 +20,45 @@ domain, drawing options from the `domains` values in `catalog/tools.yaml`.
 Ask at most two questions here. This is not the interview — `/skill:blueprint`
 does that. You need only enough to know what tooling the work implies.
 
-## 2. Select candidates
+## 2. Detect the platform
+
+Before any install command is selected, shown or run, establish what this machine
+actually is:
+
+```sh
+. /etc/os-release && echo "$ID ${ID_LIKE:-}" && uname -m
+```
+
+Map `ID`/`ID_LIKE` onto a family:
+
+| Family | `ID` values |
+|---|---|
+| `debian` | debian, ubuntu, linuxmint, pop |
+| `fedora` | fedora, rhel, centos, rocky, almalinux |
+| `arch` | arch, manjaro, endeavouros |
+
+Then **confirm by fact, not by name**: run `command -v` for that family's package
+manager (`apt`, `dnf`, `pacman`). What is present on PATH wins over anything
+`/etc/os-release` claims. If the family is none of the three, or the expected
+manager is absent, say so plainly and treat every catalog install command as
+unresolved below.
+
+### Resolving an install command
+
+For each tool, in this order:
+
+1. `install_<family>` if the entry has one — use it.
+2. Otherwise `install`, **but only if** the package manager it invokes is present
+   on this machine. A command naming `apt` on a `dnf` box is not a fallback, it is
+   a failure.
+3. Otherwise it is **unresolved**: delegate to `pi-workflow.pw-researcher` for the
+   command for *this* platform, then show the user the command and its source
+   before offering it. Never adapt a command yourself by swapping `apt` for `dnf` —
+   package names differ across distros and a plausible guess is worse than an
+   honest gap.
+4. `MANUAL` at any level means print `install_notes` as a manual step.
+
+## 3. Select candidates
 
 1. Match the task's domains against `catalog/tools.yaml`. Entries with
    `domains: [any]` are always candidates.
@@ -31,15 +69,19 @@ does that. You need only enough to know what tooling the work implies.
 
    ```
    subagent({ agent: "pi-workflow.pw-researcher", model: <roles.researcher.model>,
-              task: "Find the tooling needed for: <task>. For each candidate give:
-                     what it does, why this task needs it, the exact install command
-                     for Ubuntu 24.04, whether it requires root, and whether it is a
-                     general dev tool or specific to this project. Cite sources." })
+              task: "Find the tooling needed for: <task>. The target machine is
+                     <ID> <VERSION_ID> (<family> family, <arch>), package manager
+                     <manager>. For each candidate give: what it does, why this task
+                     needs it, the exact install command *for that platform*,
+                     whether it requires root, and whether it is a general dev tool
+                     or specific to this project. Cite sources. If a tool has no
+                     packaged install on this platform, say so rather than giving
+                     the command for a different distro." })
    ```
 
    Write findings to `.pi-workflow/research/tooling-<topic>.md`.
 
-## 3. Probe
+## 4. Probe
 
 Run each candidate's `detect` command. **Run nothing else.** No installs, no auth,
 nothing interactive.
@@ -52,7 +94,7 @@ Sort results into: **present** · **present but unauthenticated** · **missing**
 For a large candidate set, delegate the probing to `pi-workflow.pw-scout` with the exact
 detect commands. Keep the interpretation yourself.
 
-## 4. Classify what is missing
+## 5. Classify what is missing
 
 - **global** — common dev tooling, or part of the standing hosting/infra stack
   (az, aws, render, fly, pac, docker, gh, terraform, pwsh, gitleaks).
@@ -62,7 +104,7 @@ detect commands. Keep the interpretation yourself.
 Use the catalog's `scope`. For anything unclassified, ask, recommending **global**
 when the tool is plausibly reusable across future projects.
 
-## 5. Get consent once
+## 6. Get consent once
 
 Do not ask per tool. Present the whole set in a single `ask_user_question` with
 `multiSelect: true`, putting the full table in the option previews:
@@ -71,12 +113,17 @@ Do not ask per tool. Present the whole set in a single `ask_user_question` with
 
 Everything not selected is **declined**; capture the reason from `notes` if given.
 
-## 6. Install
+## 7. Install
 
-- **`sudo: false`** → run the install command directly. Report each result.
+Use the command resolved in §2 for this platform — never the raw `install` field
+when a family override applies.
+
+- **`sudo: false`** → run the resolved command directly. Report each result.
 - **`sudo: true`** → **never run it.** Collect every sudo command into one
   copy-pasteable block and ask the user to run it in another terminal window.
-- **`install: MANUAL`** → print `install_notes` as the manual step.
+- **`MANUAL`** → print `install_notes` as the manual step.
+- **unresolved** → the researcher's cited command, shown with its source, and only
+  after the user has seen where it came from.
 - **`auth` commands** → never run. They are interactive by nature. Surface them.
 
 ```
@@ -91,9 +138,9 @@ Then log out and back in for the docker group to take effect.
 Then ask whether they are done, and **re-probe** to confirm. Never take "done" as
 proof — the detect command is the proof.
 
-## 7. Loop until settled
+## 8. Loop until settled
 
-Repeat 6-7 until every candidate is `installed`, `already-present`, `declined`, or
+Repeat 7-8 until every candidate is `installed`, `already-present`, `declined`, or
 `failed`.
 
 A tool that fails to install twice is `failed`: capture the actual error and ask
@@ -102,29 +149,33 @@ whether to retry, skip, or stop.
 **Do not exit with anything in an unknown state.** That is this skill's one
 guarantee — blueprint and build both assume `tools.md` is true.
 
-## 8. Write tools.md
+## 9. Write tools.md
 
 Delegate to `pi-workflow.pw-scribe` with `templates/tools.md.tmpl` and your collected facts,
 or write it directly if short. Output to `.pi-workflow/tools.md`.
 
 Every version string must come from an actual detect run. Never from memory.
 
-## 9. Update the machine inventory
+## 10. Update the machine inventory
 
 Write `~/.pi/workflow/machine.json` (machine-scoped, deliberately outside the
 repo, create the directory if needed):
 
 ```json
 { "version": 1, "updatedAt": "<iso8601>",
+  "platform": { "id": "fedora", "versionId": "44", "family": "fedora",
+                "manager": "dnf", "arch": "x86_64" },
   "tools": {
     "az": { "present": true, "version": "2.68.0", "checkedAt": "<iso8601>",
             "scope": "global", "authed": true },
     "flyctl": { "present": false, "declined": true, "checkedAt": "<iso8601>" } } }
 ```
 
-Merge with what is there; never drop entries for tools you did not probe.
+Merge with what is there; never drop entries for tools you did not probe. If the
+recorded `platform` differs from what you detected this run, discard every cached
+tool entry and re-probe — the inventory belongs to a machine, not a distro.
 
-## 10. Close
+## 11. Close
 
 Update `state.json`: `stages.groundwork.status = "complete"`. Print outstanding
 manual steps, then:
@@ -136,6 +187,9 @@ Next: clear context, then /skill:blueprint <your goal>
 ## Hard rules
 
 - **Never execute a command containing `sudo`.** Not even if asked to. Print it.
+- **Never offer or run an install command for a package manager this machine does
+  not have.** An `apt` command on a `dnf` box wastes the user's time and teaches
+  them to distrust the whole document. Resolve it or report it unresolved.
 - Never run an install that prompts interactively.
 - Never run an `auth` / login command.
 - Never claim a tool is installed without a successful detect run afterwards.

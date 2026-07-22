@@ -35,6 +35,9 @@ the message shown.
 | `pi-subagents.agents` removed from manifest | must be `["./agents"]` or the pw- agents will not load |
 | npm dependency added | no npm dependencies allowed |
 | Bare `agent: "pw-worker"` | must be namespaced or it will not resolve |
+| `install_fedora` removed from a debian-family entry | install targets the debian family but has no install_fedora |
+| `install_suse:` key added | unknown platform key — supported families are debian, fedora, arch |
+| `sudo: false` + sudo in `install_fedora` | declares sudo: false but install_fedora uses sudo |
 
 ## Bug found and fixed during verification
 
@@ -53,6 +56,22 @@ bare form so it cannot regress.
 `apply-models.mjs` writes overrides under **both** keys, so routing lands whichever
 form a future pi-subagents accepts.
 
+## Bug found in use — Fedora, 2026-07-21
+
+**The catalog was Ubuntu-only and nothing checked it.** A `/skill:groundwork` run
+on Fedora 44 offered `sudo apt install …`; the machine has `dnf`/`dnf5` and no
+`apt` or `snap` at all. Five entries were affected — `gh`, `az`, `pwsh`, `jq`,
+`ripgrep` — plus `playwright-deps`, whose `playwright install-deps` supports only
+Debian and Ubuntu. `skills/groundwork/SKILL.md` also hardcoded *"the exact install
+command for Ubuntu 24.04"* into the researcher prompt, so the non-catalog path
+returned Ubuntu commands too.
+
+Fixed by detecting the platform before any command is selected, per-family
+`install_<family>` keys, and a validator rule that fails a family-bound entry
+missing its siblings. Per-family commands were taken from each vendor's own
+install page — GitHub CLI `docs/install_linux.md`, Microsoft Learn for `az` and
+PowerShell — not translated from the Debian ones.
+
 ## Not yet verified — needs an interactive session
 
 These cannot run through `pi -p`; they need the TUI.
@@ -61,6 +80,9 @@ These cannot run through `pi -p`; they need the TUI.
       multi-select, the "Type something." row
 - [ ] A full `/skill:groundwork` run: probe → consent → install → re-probe loop →
       `tools.md`
+- [ ] `/skill:groundwork` on a non-Debian machine offering only commands for that
+      machine's package manager, and researching rather than guessing where the
+      catalog has no entry for the family
 - [ ] A full `/skill:blueprint` interview, including that the ledger **grows** when
       an answer implies new decisions
 - [ ] A `/skill:build` run with a real parallel wave, reviewer gate and per-package

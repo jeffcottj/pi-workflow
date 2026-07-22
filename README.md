@@ -105,6 +105,21 @@ Defaults target the `opencode-go` catalog. Edit for your provider and re-run
 rather than written. `reviewer` sharing a model with `worker` is a validation
 error, not a preference.
 
+### `~/.pi/web-search.json`
+
+Not part of this repo — it belongs to `pi-web-access` — but bootstrap sets
+`workflow: "none"` there on a fresh machine, so `web_search` returns raw results
+instead of opening the browser curator.
+
+The reasoning: research that feeds a plan runs in `pw-researcher` subagents, and
+those resolve to `none` regardless of this setting because they have no UI. Curating
+only top-level searches would give your interactive searches different treatment
+from the ones actually shaping plans. `auto-summary` is worse for this workflow
+still — it puts a second model between the search and a researcher whose whole
+contract is to cite only what it fetched.
+
+Bootstrap only fills the key in when it is absent, so a later `/curator on` sticks.
+
 ### `config/limits.json`
 
 Runaway detection only — **no parallelism cap and no hard budget kill.** Every
@@ -121,6 +136,12 @@ package whose dependencies are satisfied launches immediately. What is enforced:
 The curated inventory groundwork probes, so it does not re-research `az` and
 `docker` on every project. Adding a tool: see `catalog/README.md`. Anything not in
 the catalog still gets handled — groundwork researches it on the web.
+
+Entries carry per-distro install commands (`install_debian`, `install_fedora`,
+`install_arch`). groundwork detects the machine's family first and resolves
+against it, and **never offers a command for a package manager the machine does
+not have** — it researches the right one instead. `validate.mjs` fails any entry
+whose install is bound to one family without commands for the others.
 
 ## Artifacts
 
